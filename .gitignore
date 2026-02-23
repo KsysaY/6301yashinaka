@@ -210,4 +210,4 @@ __marimo__/
 # Новое
 .flake8
 .project_venv/
-MetObjects.txt
+MetObjects.csv
