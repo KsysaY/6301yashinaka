@@ -23,12 +23,12 @@ class Artwork:
         self._metadata = metadata if metadata is not None else {}
 
     @property
-    def get_image(self) -> np.ndarray:
+    def image(self) -> np.ndarray:
         """Возвращает изображение"""
         return self._image
     
     @property
-    def get_metadata(self) -> dict:
+    def metadata(self) -> dict:
         """Возвращает метаданные"""
         return self._metadata
     
@@ -190,7 +190,7 @@ class ImageProcessor:
         return self._results
     
     @property
-    def get_artwork(self) -> Artwork:
+    def artwork(self) -> Artwork:
         return self._artwork
     
     def _load_image(self):
@@ -212,8 +212,8 @@ class ImageProcessor:
     
     def info(self):
         print(f"\nИзображение: {self._image_path}")
-        print(f"Размер: {self._artwork.get_image.shape}")
-        print(f"Метаданные: {self._artwork.get_metadata}\n")
+        print(f"Размер: {self._artwork.image.shape}")
+        print(f"Метаданные: {self._artwork.metadata}\n")
     
     def save_result(self, image: np.ndarray, change: str) -> str:
         """Сохранение результата"""
@@ -338,10 +338,10 @@ if __name__ == "__main__":
             
         processor.process_all()
             
-        gray = processor.get_artwork.MyGrayscale()
+        gray = processor.artwork.MyGrayscale()
         gray_image = Artwork(np.stack([gray]*3, axis=-1))
             
-        result = processor.get_artwork + gray_image
-        processor.save_result(result.get_image, "_sum")
+        result = processor.artwork + gray_image
+        processor.save_result(result.image, "_sum")
     else:
         print(f"Файл {image_path} не найден")
