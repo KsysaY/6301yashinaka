@@ -6,24 +6,38 @@ import os
 from numpy.lib.stride_tricks import sliding_window_view
 import json
 
+#Декоратор, замеряющий время выполнения функции    
+def timer(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print(f"{func.__name__} - {end - start:.4f} сек")
+        return result
+    return wrapper
+
 class Artwork:
     """Класс, инкапсулирующий изображение и метаданные"""
     def __init__(self, image: np.ndarray, metadata: dict = None):
         self._image = image
         self._metadata = metadata if metadata is not None else {}
 
-    def get_image(self) -> np.ndarray:
+    @property
+    def image(self) -> np.ndarray:
         """Возвращает изображение"""
         return self._image
     
-    def get_metadata(self) -> dict:
+    @property
+    def metadata(self) -> dict:
         """Возвращает метаданные"""
         return self._metadata
     
+    @property
     def title(self) -> str:
         """Название"""
         return self._metadata.get('title', 'Unknown')
     
+    @property
     def artist(self) -> str:
         """Художник"""
         return self._metadata.get('artist', 'Unknown')
@@ -162,15 +176,22 @@ class Artwork:
         """Перегрузка метода преобразования в строку"""
         return (f"Artwork: {self.title()}\n  Artist: {self.artist()}\n")
 
-#Декоратор, замеряющий время выполнения функции    
-def timer(func):
+
+#Сколько времени с последнего вызова
+def timer_metadata(func):
+    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+    start = 0.0
     def wrapper(*args, **kwargs):
-        start = time.time()
-        result = func(*args, **kwargs)
-        end = time.time()
+        print("BBBBBBBBBBBBBBBBBB")
+        nonlocal start
+        
+        end = time.time()   
         print(f"{func.__name__} - {end - start:.4f} сек")
+        start = end
+        result = func(*args, **kwargs)
         return result
     return wrapper
+
 
 class ImageProcessor:
     """Класс, управляющий процессом обработки изображений"""
@@ -179,11 +200,14 @@ class ImageProcessor:
         self._image_path = image_path
         self._artwork = None
         self._load_image()
+
     
-    def get_results(self) -> dict:
+    @property
+    def results(self) -> dict:
         return self._results
     
-    def get_artwork(self) -> Artwork:
+    @property
+    def artwork(self) -> Artwork:
         return self._artwork
     
     def _load_image(self):
@@ -203,10 +227,7 @@ class ImageProcessor:
         
         self._artwork = Artwork(rgb_image, metadata)
     
-    def info(self):
-        print(f"\nИзображение: {self._image_path}")
-        print(f"Размер: {self._artwork.get_image().shape}")
-        print(f"Метаданные: {self._artwork.get_metadata()}\n")
+
     
     def save_result(self, image: np.ndarray, change: str) -> str:
         """Сохранение результата"""
@@ -227,6 +248,11 @@ class ImageProcessor:
         result = self._artwork.LibGrayscale()
         self._results['_lib_gray'] = result
         return result
+
+    def info(self):
+        print(f"\nИзображение: {self._image_path}")
+        print(f"Размер: {self._artwork.image.shape}")
+        print(f"Метаданные: {self._artwork.metadata}\n")
 
     @timer
     def work_grayscale_my(self) -> np.ndarray:
@@ -288,28 +314,25 @@ class ImageProcessor:
         return result
     
     def process_all(self) -> None:
-        # 1. Grayscale
+        #1. Grayscale
         gray = self.work_grayscale_lib()
         self.save_result(gray, "_lib_gray")
 
         gray = self.work_grayscale_my()
         self.save_result(gray, "_my_gray")
         
-        # 2. Convolution
+        #2. Convolution
         conv = self.work_convolution_lib()
         self.save_result(conv, "_lib_conv")
 
-        conv = self.work_convolution_my()
-        self.save_result(conv, "_my_conv")
-        
-        # 3. Gaussian Blur
+        #3. Blur
         blur = self.work_blur_lib()
         self.save_result(blur, "_lib_blur")
 
         blur = self.work_blur_my()
         self.save_result(blur, "_my_blur")
         
-        # 4. Sobel
+        #4. Sobel
         sobel = self.work_sobel_lib()
         self.save_result(sobel, "_lib_sobel")
 
@@ -317,20 +340,33 @@ class ImageProcessor:
         self.save_result(sobel, "_my_sobel")
 
 
+
+
 if __name__ == "__main__":
-    image_path = "paintings/78143.jpg"
+
+    ImageProcessor.info = timer_metadata(ImageProcessor.info)
+    print(ImageProcessor.info)
+    print(type(ImageProcessor.info))
     
+    image_path = "paintings/78143.jpg"
+
     if os.path.exists(image_path):
+
+        a = Artwork.__dict__['artist']
+        print(Artwork.__dict__)
+
         processor = ImageProcessor(image_path)
             
+        processor.info()
         processor.info()
             
         processor.process_all()
             
-        gray = processor.get_artwork().MyGrayscale()
+        gray = processor.artwork.MyGrayscale()
         gray_image = Artwork(np.stack([gray]*3, axis=-1))
+        processor.info()
             
-        result = processor.get_artwork() + gray_image
-        processor.save_result(result.get_image(), "_sum")
+        result = processor.artwork + gray_image
+        processor.save_result(result.image, "_sum")
     else:
         print(f"Файл {image_path} не найден")
