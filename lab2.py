@@ -177,6 +177,22 @@ class Artwork:
         return (f"Artwork: {self.title()}\n  Artist: {self.artist()}\n")
 
 
+#Сколько времени с последнего вызова
+def timer_metadata(func):
+    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+    start = 0.0
+    def wrapper(*args, **kwargs):
+        print("BBBBBBBBBBBBBBBBBB")
+        nonlocal start
+        
+        end = time.time()   
+        print(f"{func.__name__} - {end - start:.4f} сек")
+        start = end
+        result = func(*args, **kwargs)
+        return result
+    return wrapper
+
+
 class ImageProcessor:
     """Класс, управляющий процессом обработки изображений"""
     def __init__(self, image_path: str):
@@ -184,9 +200,10 @@ class ImageProcessor:
         self._image_path = image_path
         self._artwork = None
         self._load_image()
+
     
     @property
-    def get_results(self) -> dict:
+    def results(self) -> dict:
         return self._results
     
     @property
@@ -210,10 +227,7 @@ class ImageProcessor:
         
         self._artwork = Artwork(rgb_image, metadata)
     
-    def info(self):
-        print(f"\nИзображение: {self._image_path}")
-        print(f"Размер: {self._artwork.image.shape}")
-        print(f"Метаданные: {self._artwork.metadata}\n")
+
     
     def save_result(self, image: np.ndarray, change: str) -> str:
         """Сохранение результата"""
@@ -234,6 +248,11 @@ class ImageProcessor:
         result = self._artwork.LibGrayscale()
         self._results['_lib_gray'] = result
         return result
+
+    def info(self):
+        print(f"\nИзображение: {self._image_path}")
+        print(f"Размер: {self._artwork.image.shape}")
+        print(f"Метаданные: {self._artwork.metadata}\n")
 
     @timer
     def work_grayscale_my(self) -> np.ndarray:
@@ -306,9 +325,6 @@ class ImageProcessor:
         conv = self.work_convolution_lib()
         self.save_result(conv, "_lib_conv")
 
-        conv = self.work_convolution_my()
-        self.save_result(conv, "_my_conv")
-        
         #3. Blur
         blur = self.work_blur_lib()
         self.save_result(blur, "_lib_blur")
@@ -324,22 +340,31 @@ class ImageProcessor:
         self.save_result(sobel, "_my_sobel")
 
 
+
+
 if __name__ == "__main__":
+
+    ImageProcessor.info = timer_metadata(ImageProcessor.info)
+    print(ImageProcessor.info)
+    print(type(ImageProcessor.info))
+    
     image_path = "paintings/78143.jpg"
 
     if os.path.exists(image_path):
 
-        #a = Artwork.__dict__['artist']
-        #print(a)
+        a = Artwork.__dict__['artist']
+        print(Artwork.__dict__)
 
         processor = ImageProcessor(image_path)
             
+        processor.info()
         processor.info()
             
         processor.process_all()
             
         gray = processor.artwork.MyGrayscale()
         gray_image = Artwork(np.stack([gray]*3, axis=-1))
+        processor.info()
             
         result = processor.artwork + gray_image
         processor.save_result(result.image, "_sum")
