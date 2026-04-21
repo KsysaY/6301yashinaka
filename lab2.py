@@ -5,6 +5,7 @@ import time
 import os
 from numpy.lib.stride_tricks import sliding_window_view
 import json
+import pandas as pd
 
 #Декоратор, замеряющий время выполнения функции    
 def timer(func):
