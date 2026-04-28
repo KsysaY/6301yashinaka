@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-def file_reader(path, chunk_size=50000):
+def file_reader(path, chunk_size=1000):
     """Чтение файла"""
     cols = ['AccessionYear', 'Object Begin Date']
     for chunk in pd.read_csv(path, chunksize=chunk_size, low_memory=False, usecols=cols):
@@ -23,24 +23,38 @@ def data_cleaner(data):
 
 def data_aggregator(data):
     """Агрегация"""
-    full_df = pd.DataFrame()
+    full_stat = pd.DataFrame()
 
     for chunk_df in data:
-        full_df = pd.concat([full_df, chunk_df], ignore_index=True)
+        chunk_info = pd.DataFrame({
+            'size': chunk_df.groupby('Decade')['Age'].size(),
+            'sum': chunk_df.groupby('Decade')['Age'].sum(),
+            'std': (chunk_df['Age']**2).groupby(chunk_df['Decade']).sum()
+        })
+        full_stat = pd.concat([full_stat, chunk_info])
 
-    grouped = full_df.groupby('Decade')['Age']
+    yield full_stat.groupby(level=0).sum()
 
-    stat = pd.DataFrame()
-    stat['mean_age'] = grouped.mean()
-    stat['std_age'] = grouped.std()
-    stat['count'] = grouped.count()
+def final(stat_summary):
+    size = stat_summary['size']
+    sum = stat_summary['sum']
+    
+    stat_summary['mean_age'] = sum / size
+    
 
-    stat = stat.reset_index()
-        
-    stat['ci_95'] = 1.96 * stat['std_age'] / np.sqrt(stat['count'])
-    stat['scatter_limit'] = 1.96 * stat['std_age']
-        
-    yield stat
+    var = (stat_summary['std'] - (sum**2 / size)) / (size - 1)
+    stat_summary['std_age'] = np.sqrt(var.clip(lower=0))
+    
+    stat = stat_summary.reset_index().sort_values('Decade')
+
+    error_factor = 1.96 * stat['std_age']
+    
+    stat['ci_95'] = error_factor / np.sqrt(stat['size']) 
+    stat['scatter_limit'] = error_factor             
+    stat['age_diff'] = stat['mean_age'].diff()      
+    
+    return stat
+  
 
 def plot_results(stat):
     
@@ -59,8 +73,6 @@ def plot_results(stat):
     ax[0].set_ylabel('Возраст')
     ax[0].legend()
     ax[0].grid(axis='y', linestyle='--', alpha=0.5)
-
-    stat['age_diff'] = stat['mean_age'].diff()
 
     ax[1].plot(decades_str, stat['age_diff'], marker='*', color='orange', label='Изменение возраста')
     ax[1].axhline(0, color='black', linestyle='-')
@@ -82,7 +94,9 @@ if __name__ == "__main__":
 
         pipeline = data_aggregator(data_cleaner(file_reader(path)))
 
-        result = next(pipeline)
+        raw_stat = next(pipeline)
+        
+        result = final(raw_stat)
         
         print("Результаты:")
         print(result.head(10))
