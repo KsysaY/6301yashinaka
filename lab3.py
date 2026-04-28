@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import seaborn as sns
 
 def file_reader(path, chunk_size=1000):
     """Чтение файла"""
@@ -23,37 +24,33 @@ def data_cleaner(data):
 
 def data_aggregator(data):
     """Агрегация"""
-    full_stat = pd.DataFrame()
+    stat = pd.DataFrame()
 
     for chunk_df in data:
         chunk_info = pd.DataFrame({
             'size': chunk_df.groupby('Decade')['Age'].size(),
             'sum': chunk_df.groupby('Decade')['Age'].sum(),
-            'std': (chunk_df['Age']**2).groupby(chunk_df['Decade']).sum()
+            'sum_sq': (chunk_df['Age']**2).groupby(chunk_df['Decade']).sum()
         })
-        full_stat = pd.concat([full_stat, chunk_info])
+        stat = pd.concat([stat, chunk_info])
 
-    yield full_stat.groupby(level=0).sum()
+    stat_summary = stat.groupby('Decade').sum()
 
-def final(stat_summary):
     size = stat_summary['size']
-    sum = stat_summary['sum']
+    sum_val = stat_summary['sum']
     
-    stat_summary['mean_age'] = sum / size
+    stat_summary['mean_age'] = sum_val / size
     
-
-    var = (stat_summary['std'] - (sum**2 / size)) / (size - 1)
+    var = (stat_summary['sum_sq'] - (sum_val**2 / size)) / (size - 1)
     stat_summary['std_age'] = np.sqrt(var.clip(lower=0))
     
     stat = stat_summary.reset_index().sort_values('Decade')
-
-    error_factor = 1.96 * stat['std_age']
     
-    stat['ci_95'] = error_factor / np.sqrt(stat['size']) 
-    stat['scatter_limit'] = error_factor             
-    stat['age_diff'] = stat['mean_age'].diff()      
+    stat['ci_95'] = 1.96 * stat['std_age'] / np.sqrt(stat['size']) 
+    stat['scatter_limit'] = 1.96 * stat['std_age']             
+    stat['age_diff'] = stat['mean_age'].diff()
     
-    return stat
+    yield stat
   
 
 def plot_results(stat):
@@ -87,6 +84,60 @@ def plot_results(stat):
     plt.tight_layout()
     plt.show()
 
+def frequency(path, chunk_size=1000):
+    col = ['Department', 'Culture', 'Medium', 'Classification', 'Country']
+    total_counts = pd.DataFrame(columns=['field', 'value', 'count'])
+    
+    for chunk in pd.read_csv(path, chunksize=chunk_size, usecols=col, low_memory=False):
+        for field in col:
+            counts = chunk[field].dropna().astype(str).value_counts().reset_index()
+            counts.columns = ['value', 'count']
+            counts['field'] = field
+            total_counts = pd.concat([total_counts, counts], ignore_index=True)
+    
+    result = total_counts.groupby(['field', 'value'])['count'].sum().unstack(level=0)
+    result = result.fillna(0).astype(int)
+    
+    return result
+
+def calculate_metrics(df):
+    results = pd.DataFrame()
+    
+    for field in df.columns:
+        counts = df[field].values
+        counts = counts[counts > 0]
+        
+        if len(counts) == 0:
+            continue
+        
+        p = counts / counts.sum()
+        n = len(p)
+        
+        gini = 1 - np.sum(p ** 2)
+        
+        entropy = -np.sum(p * np.log2(p + 1e-12))
+        max_entropy = np.log2(n) if n > 1 else 1
+        entropy_norm = entropy / max_entropy if max_entropy > 0 else 0
+        
+        enc_norm = (1 / np.sum(p ** 2)) / n if n > 0 else 0
+        
+        temp = pd.DataFrame({
+            'Gini': [gini],
+            'Entropy_norm': [entropy_norm],
+            'ENC_norm': [enc_norm]
+        }, index=[field])
+        
+        results = pd.concat([results, temp])
+    
+    return results
+
+def plot_quality_heatmap(metrics):
+    """Построение тепловой карты"""
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(metrics, annot=True, cmap='viridis', vmin=0, vmax=1)
+    plt.title('Метрики')
+    plt.show()
+
 if __name__ == "__main__":
     path = "MetObjects.csv"
     
@@ -94,13 +145,16 @@ if __name__ == "__main__":
 
         pipeline = data_aggregator(data_cleaner(file_reader(path)))
 
-        raw_stat = next(pipeline)
-        
-        result = final(raw_stat)
+        result = next(pipeline)
         
         print("Результаты:")
         print(result.head(10))
         
         plot_results(result)
+
+        #Допы
+        counts = frequency(path)
+        metrics = calculate_metrics(counts)
+        plot_quality_heatmap(metrics)
     else:
         print(f"Файл {path} не найден")
