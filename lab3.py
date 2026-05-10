@@ -25,6 +25,7 @@ def data_cleaner(data):
 def data_aggregator(data):
     """Агрегация"""
     stat = pd.DataFrame()
+    stat_summary = pd.DataFrame( columns=['size', 'sum', 'sum_sq'])
 
     for chunk_df in data:
         chunk_info = pd.DataFrame({
@@ -32,25 +33,27 @@ def data_aggregator(data):
             'sum': chunk_df.groupby('Decade')['Age'].sum(),
             'sum_sq': (chunk_df['Age']**2).groupby(chunk_df['Decade']).sum()
         })
-        stat = pd.concat([stat, chunk_info])
 
-    stat_summary = stat.groupby('Decade').sum()
+        stat_summary = stat_summary.add(chunk_info, fill_value=0)
+        #print(stat_summary.head())
+
+    print(stat_summary.head())
 
     size = stat_summary['size']
     sum_val = stat_summary['sum']
     
     stat_summary['mean_age'] = sum_val / size
     
-    var = (stat_summary['sum_sq'] - (sum_val**2 / size)) / (size - 1)
-    stat_summary['std_age'] = np.sqrt(var.clip(lower=0))
+    var = ((stat_summary['sum_sq'] - (sum_val**2 / size)) / (size - 1))
+    stat_summary['std_age'] = var.apply(lambda x: np.sqrt(max(x, 0)))
     
-    stat = stat_summary.reset_index().sort_values('Decade')
+    stat_summary = stat_summary.reset_index().sort_values('Decade')
     
-    stat['ci_95'] = 1.96 * stat['std_age'] / np.sqrt(stat['size']) 
-    stat['scatter_limit'] = 1.96 * stat['std_age']             
-    stat['age_diff'] = stat['mean_age'].diff()
+    stat_summary['ci_95'] = 1.96 * stat_summary['std_age'] / stat_summary['size'].apply(lambda x: np.sqrt(x))
+    stat_summary['scatter_limit'] = 1.96 * stat_summary['std_age']             
+    stat_summary['age_diff'] = stat_summary['mean_age'].diff()
     
-    yield stat
+    yield stat_summary
   
 
 def plot_results(stat):
@@ -155,6 +158,8 @@ if __name__ == "__main__":
         #Допы
         counts = frequency(path)
         metrics = calculate_metrics(counts)
+
+        print(metrics)
         plot_quality_heatmap(metrics)
     else:
         print(f"Файл {path} не найден")
