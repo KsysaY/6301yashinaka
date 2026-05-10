@@ -5,6 +5,7 @@ import time
 import os
 from numpy.lib.stride_tricks import sliding_window_view
 import json
+import pandas as pd
 
 #Декоратор, замеряющий время выполнения функции    
 def timer(func):
@@ -179,10 +180,8 @@ class Artwork:
 
 #Сколько времени с последнего вызова
 def timer_metadata(func):
-    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
     start = 0.0
     def wrapper(*args, **kwargs):
-        print("BBBBBBBBBBBBBBBBBB")
         nonlocal start
         
         end = time.time()   
@@ -343,28 +342,19 @@ class ImageProcessor:
 
 
 if __name__ == "__main__":
-
-    ImageProcessor.info = timer_metadata(ImageProcessor.info)
-    print(ImageProcessor.info)
-    print(type(ImageProcessor.info))
     
     image_path = "paintings/78143.jpg"
 
     if os.path.exists(image_path):
 
-        a = Artwork.__dict__['artist']
-        print(Artwork.__dict__)
-
         processor = ImageProcessor(image_path)
             
-        processor.info()
         processor.info()
             
         processor.process_all()
             
         gray = processor.artwork.MyGrayscale()
         gray_image = Artwork(np.stack([gray]*3, axis=-1))
-        processor.info()
             
         result = processor.artwork + gray_image
         processor.save_result(result.image, "_sum")
