@@ -339,24 +339,25 @@ class ImageProcessor:
         self.save_result(sobel, "_my_sobel")
 
 
-
-
 if __name__ == "__main__":
     
-    image_path = "paintings/78143.jpg"
+    image_path = ["paintings/78143.jpg"] * 5
 
-    if os.path.exists(image_path):
-
-        processor = ImageProcessor(image_path)
+    start_total = time.time()
+    
+    for i, image_path in enumerate(image_path, 1):
+        if os.path.exists(image_path):
             
-        processor.info()
+            processor = ImageProcessor(image_path)
+            processor.info()
+            processor.process_all()
             
-        processor.process_all()
-            
-        gray = processor.artwork.MyGrayscale()
-        gray_image = Artwork(np.stack([gray]*3, axis=-1))
-            
-        result = processor.artwork + gray_image
-        processor.save_result(result.image, "_sum")
-    else:
-        print(f"Файл {image_path} не найден")
+            gray = processor.artwork.MyGrayscale()
+            gray_image = Artwork(np.stack([gray]*3, axis=-1))
+            result = processor.artwork + gray_image
+            processor.save_result(result.image, "_sum")
+        else:
+            print(f"Файл {image_path} не найден")
+    
+    total_time = time.time() - start_total
+    print(f"\nОбщее время работы для 5 изображений: {total_time:.2f} сек")
