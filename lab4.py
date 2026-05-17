@@ -179,7 +179,13 @@ class ImageProcessor:
                 return []
 
             tasks = [self.get_valid_image(session, i, all_ids) for i in range(1, count + 1)]
-            results = await asyncio.gather(*tasks)
+            # results = await asyncio.as_completed(*tasks) 
+            results = []
+            
+            for res in asyncio.as_completed(tasks):
+                result = await res
+                results.append(result)
+            
             return [r for r in results if r is not None]
 
     @staticmethod
