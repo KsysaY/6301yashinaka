@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import asyncio
 import aiohttp
 import aiofiles
@@ -7,7 +6,6 @@ import time
 import argparse
 import cv2
 import numpy as np
-import csv
 import random
 from concurrent.futures import ProcessPoolExecutor
 
@@ -147,18 +145,19 @@ class ImageProcessor:
                         continue 
 
                 print(f"Downloading image {ind} started")
+                orig_path = os.path.join(self.output_dir, f"{ind}_{current_id}_original.png")
 
                 async with session.get(img_url, timeout=40) as resp:
                     if resp.status != 200: 
                         continue
-                    img_bytes = await resp.read()
-
-                orig_path = os.path.join(self.output_dir, f"{ind}_{current_id}_original.png")
-                async with aiofiles.open(orig_path, mode='wb') as f:
-                    await f.write(img_bytes)
+                    
+                    async with aiofiles.open(orig_path, mode='wb') as f:
+                        async for chunk in resp.content.iter_chunked(65536):
+                            await f.write(chunk)
 
                 print(f"Downloading image {ind} finished")
-                return (ind, current_id, img_bytes, self.output_dir)
+
+                return (ind, current_id, orig_path, self.output_dir)
             except Exception:
                 continue
         return None
@@ -180,22 +179,28 @@ class ImageProcessor:
                 return []
 
             tasks = [self.get_valid_image(session, i, all_ids) for i in range(1, count + 1)]
-            results = await asyncio.gather(*tasks)
+            # results = await asyncio.as_completed(*tasks) 
+            results = []
+            
+            for res in asyncio.as_completed(tasks):
+                result = await res
+                results.append(result)
+            
             return [r for r in results if r is not None]
 
     @staticmethod
     def process_worker(data):
         """Обработка в параллельных процессах"""
-        ind, painting_id, img_bytes, output_dir = data
+        ind, painting_id, img_path, output_dir = data
         pid = os.getpid()
         
         print(f"Convolution for image {ind} started (PID {pid})")
         
-        img_array = np.frombuffer(img_bytes, dtype=np.uint8)
-        img_bgr = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        img_bgr = cv2.imread(img_path)
         
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         artwork = Artwork(img_rgb)
+
         kernel = np.array([[-2, -1, 0], 
                                [-1, 1, 1], 
                                [0, 1, 2]], dtype=np.float32)
