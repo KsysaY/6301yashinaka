@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "6301yashinaka"
+version = "1.1.1"
+description = "Лабораторная работа №5"
+dependencies = [
+    "aiohttp==3.13.5",
+    "aiofiles==25.1.0",
+    "opencv-python==4.13.0.92",
+    "numpy==2.3.3",
+    "pandas==2.3.2",
+    "matplotlib==3.10.6",
+    "seaborn==0.13.2"
+]
+
+[project.scripts]
+metetl = "metetl.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
